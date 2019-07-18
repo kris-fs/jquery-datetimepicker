@@ -69,6 +69,27 @@
 	display: block;
 }
 
+.xdsoft_datetimepicker table.xdsoft_timepicker tbody {
+	vertical-align: top;
+	width: 120px;
+}
+
+.xdsoft_datetimepicker .xdsoft_timepicker.active .timepicker_sections {
+	display: flex;
+	flex-flow: row;
+	width: 100%;
+}
+
+.xdsoft_datetimepicker .xdsoft_timepicker.active .timepicker_section {
+	display: block;
+}
+
+.xdsoft_datetimepicker .xdsoft_timepicker.active input {
+	width: 35px;
+	border: 1px solid #ccc;
+	border-radius: 3px;
+
+}
 .xdsoft_datetimepicker .xdsoft_datepicker {
 	width: 224px;
 	float: left;
@@ -85,12 +106,27 @@
 }
 
 .xdsoft_datetimepicker .xdsoft_timepicker {
-	width: 58px;
 	float: left;
 	text-align: center;
 	margin-left: 8px;
 	margin-top: 0;
 }
+
+.xdsoft_datetimepicker .xdsoft_timepicker .display_time {
+	text-align: left;
+}
+
+.xdsoft_datetimepicker .xdsoft_timepicker .display_time_text {
+	text-align: center;
+}
+
+.xdsoft_datetimepicker .xdsoft_timepicker .separator {
+	font-size: 16px;
+	margin: 0px 3px;
+	text-align: center;
+	line-height: normal;
+}
+
 .xdsoft_datetimepicker.xdsoft_rtl .xdsoft_timepicker {
 	float: right;
 	margin-right: 8px;
@@ -98,8 +134,8 @@
 }
 
 .xdsoft_datetimepicker .xdsoft_datepicker.active+.xdsoft_timepicker {
-	margin-top: 8px;
-	margin-bottom: 3px
+	margin-top: 0px;
+	margin-bottom: 0px
 }
 
 .xdsoft_datetimepicker .xdsoft_mounthpicker {
@@ -183,9 +219,13 @@
 }
 
 .xdsoft_datetimepicker .xdsoft_timepicker .xdsoft_time_box {
-	height: 151px;
+	height: 128px;
 	overflow: hidden;
 	border-bottom: 1px solid #ddd;
+}
+
+.xdsoft_datetimepicker .xdsoft_timepicker .meridiem_time .xdsoft_time_box {
+	height: 42px;
 }
 
 .xdsoft_datetimepicker .xdsoft_timepicker .xdsoft_time_box >div >div {
@@ -197,7 +237,7 @@
 	border-collapse: collapse;
 	cursor: pointer;
 	border-bottom-width: 0;
-	height: 25px;
+	height: 21px;
 	line-height: 25px;
 }
 

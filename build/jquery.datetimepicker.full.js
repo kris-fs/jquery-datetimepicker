@@ -1,8 +1,10 @@
 /*!
- * @copyright Copyright &copy; Kartik Visweswaran, Krajee.com, 2014 - 2015
- * @version 1.3.3
+ * @copyright Copyright &copy; Kartik Visweswaran, Krajee.com, 2014 - 2017
+ * @version 1.3.4
  *
  * Date formatter utility library that allows formatting date/time variables or Date objects using PHP DateTime format.
+ * This library is a standalone javascript library and does not depend on other libraries or plugins like jQuery.
+ * 
  * @see http://php.net/manual/en/function.date.php
  *
  * For more JQuery plugins visit http://plugins.krajee.com
@@ -12,15 +14,16 @@ var DateFormatter;
 (function () {
     "use strict";
 
-    var _compare, _lpad, _extend, defaultSettings, DAY, HOUR;
+    var _compare, _lpad, _extend, _indexOf, defaultSettings, DAY, HOUR;
     DAY = 1000 * 60 * 60 * 24;
     HOUR = 3600;
 
     _compare = function (str1, str2) {
         return typeof(str1) === 'string' && typeof(str2) === 'string' && str1.toLowerCase() === str2.toLowerCase();
     };
-    _lpad = function (value, length, char) {
-        var chr = char || '0', val = value.toString();
+    _lpad = function (value, length, chr) {
+        var val = value.toString();
+        chr = chr || '0';
         return val.length < length ? _lpad(chr + val, length) : val;
     };
     _extend = function (out) {
@@ -42,6 +45,14 @@ var DateFormatter;
             }
         }
         return out;
+    };
+    _indexOf = function (val, arr) {
+        for (var i = 0; i < arr.length; i++) {
+            if (arr[i].toLowerCase() === val.toLowerCase()) {
+                return i;
+            }
+        }
+        return -1;
     };
     defaultSettings = {
         dateSettings: {
@@ -77,25 +88,35 @@ var DateFormatter;
 
     DateFormatter.prototype = {
         constructor: DateFormatter,
+        getMonth: function (val) {
+            var self = this, i;
+            i = _indexOf(val, self.dateSettings.monthsShort) + 1;
+            if (i === 0) {
+                i = _indexOf(val, self.dateSettings.months) + 1;
+            }
+            return i;
+        },
         parseDate: function (vDate, vFormat) {
             var self = this, vFormatParts, vDateParts, i, vDateFlag = false, vTimeFlag = false, vDatePart, iDatePart,
                 vSettings = self.dateSettings, vMonth, vMeriIndex, vMeriOffset, len, mer,
                 out = {date: null, year: null, month: null, day: null, hour: 0, min: 0, sec: 0};
             if (!vDate) {
-                return undefined;
+                return null;
             }
             if (vDate instanceof Date) {
                 return vDate;
-            }
-            if (typeof vDate === 'number') {
-                return new Date(vDate);
             }
             if (vFormat === 'U') {
                 i = parseInt(vDate);
                 return i ? new Date(i * 1000) : vDate;
             }
-            if (typeof vDate !== 'string') {
-                return '';
+            switch (typeof vDate) {
+                case 'number':
+                    return new Date(vDate);
+                case 'string':
+                    break;
+                default:
+                    return null;
             }
             vFormatParts = vFormat.match(self.validParts);
             if (!vFormatParts || vFormatParts.length === 0) {
@@ -108,11 +129,11 @@ var DateFormatter;
                 switch (vFormatParts[i]) {
                     case 'y':
                     case 'Y':
-                        len = vDatePart.length;
-                        if (len === 2) {
-                            out.year = parseInt((iDatePart < 70 ? '20' : '19') + vDatePart);
-                        } else if (len === 4) {
-                            out.year = iDatePart;
+                        if (iDatePart) {
+                            len = vDatePart.length;
+                            out.year = len === 2 ? parseInt((iDatePart < 70 ? '20' : '19') + vDatePart) : iDatePart;
+                        } else {
+                            return null;
                         }
                         vDateFlag = true;
                         break;
@@ -120,18 +141,18 @@ var DateFormatter;
                     case 'n':
                     case 'M':
                     case 'F':
-                        if (isNaN(vDatePart)) {
-                            vMonth = vSettings.monthsShort.indexOf(vDatePart);
-                            if (vMonth > -1) {
-                                out.month = vMonth + 1;
-                            }
-                            vMonth = vSettings.months.indexOf(vDatePart);
-                            if (vMonth > -1) {
-                                out.month = vMonth + 1;
+                        if (isNaN(iDatePart)) {
+                            vMonth = self.getMonth(vDatePart);
+                            if (vMonth > 0) {
+                                out.month = vMonth;
+                            } else {
+                                return null;
                             }
                         } else {
                             if (iDatePart >= 1 && iDatePart <= 12) {
                                 out.month = iDatePart;
+                            } else {
+                                return null;
                             }
                         }
                         vDateFlag = true;
@@ -140,6 +161,8 @@ var DateFormatter;
                     case 'j':
                         if (iDatePart >= 1 && iDatePart <= 31) {
                             out.day = iDatePart;
+                        } else {
+                            return null;
                         }
                         vDateFlag = true;
                         break;
@@ -148,16 +171,22 @@ var DateFormatter;
                         vMeriIndex = (vFormatParts.indexOf('a') > -1) ? vFormatParts.indexOf('a') :
                             (vFormatParts.indexOf('A') > -1) ? vFormatParts.indexOf('A') : -1;
                         mer = vDateParts[vMeriIndex];
-                        if (vMeriIndex > -1) {
+                        if (vMeriIndex !== -1) {
                             vMeriOffset = _compare(mer, vSettings.meridiem[0]) ? 0 :
                                 (_compare(mer, vSettings.meridiem[1]) ? 12 : -1);
-                            if (iDatePart >= 1 && iDatePart <= 12 && vMeriOffset > -1) {
-                                out.hour = iDatePart + vMeriOffset - 1;
-                            } else if (iDatePart >= 0 && iDatePart <= 23) {
-                                out.hour = iDatePart;
+                            if (iDatePart >= 1 && iDatePart <= 12 && vMeriOffset !== -1) {
+                                out.hour = iDatePart % 12 === 0 ? vMeriOffset : iDatePart + vMeriOffset;
+                            } else {
+                                if (iDatePart >= 0 && iDatePart <= 23) {
+                                    out.hour = iDatePart;
+                                }
                             }
-                        } else if (iDatePart >= 0 && iDatePart <= 23) {
-                            out.hour = iDatePart;
+                        } else {
+                            if (iDatePart >= 0 && iDatePart <= 23) {
+                                out.hour = iDatePart;
+                            } else {
+                                return null;
+                            }
                         }
                         vTimeFlag = true;
                         break;
@@ -165,18 +194,24 @@ var DateFormatter;
                     case 'H':
                         if (iDatePart >= 0 && iDatePart <= 23) {
                             out.hour = iDatePart;
+                        } else {
+                            return null;
                         }
                         vTimeFlag = true;
                         break;
                     case 'i':
                         if (iDatePart >= 0 && iDatePart <= 59) {
                             out.min = iDatePart;
+                        } else {
+                            return null;
                         }
                         vTimeFlag = true;
                         break;
                     case 's':
                         if (iDatePart >= 0 && iDatePart <= 59) {
                             out.sec = iDatePart;
+                        } else {
+                            return null;
                         }
                         vTimeFlag = true;
                         break;
@@ -186,7 +221,7 @@ var DateFormatter;
                 out.date = new Date(out.year, out.month - 1, out.day, out.hour, out.min, out.sec, 0);
             } else {
                 if (vTimeFlag !== true) {
-                    return false;
+                    return null;
                 }
                 out.date = new Date(0, 0, 0, out.hour, out.min, out.sec, 0);
             }
@@ -196,8 +231,8 @@ var DateFormatter;
             if (typeof vDateStr !== 'string') {
                 return vDateStr;
             }
-            var self = this, vParts = vDateStr.replace(self.separators, '\0').split('\0'), vPattern = /^[djmn]/g,
-                vFormatParts = vFormat.match(self.validParts), vDate = new Date(), vDigit = 0, vYear, i, iPart, iSec;
+            var self = this, vParts = vDateStr.replace(self.separators, '\0').split('\0'), vPattern = /^[djmn]/g, len,
+                vFormatParts = vFormat.match(self.validParts), vDate = new Date(), vDigit = 0, vYear, i, n, iPart, iSec;
 
             if (!vPattern.test(vFormatParts[0])) {
                 return vDateStr;
@@ -207,6 +242,9 @@ var DateFormatter;
                 vDigit = 2;
                 iPart = vParts[i];
                 iSec = parseInt(iPart.substr(0, 2));
+                if (isNaN(iSec)) {
+                    return null;
+                }
                 switch (i) {
                     case 0:
                         if (vFormatParts[0] === 'm' || vFormatParts[0] === 'n') {
@@ -224,13 +262,13 @@ var DateFormatter;
                         break;
                     case 2:
                         vYear = vDate.getFullYear();
-                        if (iPart.length < 4) {
-                            vDate.setFullYear(parseInt(vYear.toString().substr(0, 4 - iPart.length) + iPart));
-                            vDigit = iPart.length;
-                        } else {
-                            vDate.setFullYear = parseInt(iPart.substr(0, 4));
-                            vDigit = 4;
+                        len = iPart.length;
+                        vDigit = len < 4 ? len : 4;
+                        vYear = parseInt(len < 4 ? vYear.toString().substr(0, 4 - len) + iPart : iPart.substr(0, 4));
+                        if (!vYear) {
+                            return null;
                         }
+                        vDate.setFullYear(vYear);
                         break;
                     case 3:
                         vDate.setHours(iSec);
@@ -242,14 +280,15 @@ var DateFormatter;
                         vDate.setSeconds(iSec);
                         break;
                 }
-                if (iPart.substr(vDigit).length > 0) {
-                    vParts.splice(i + 1, 0, iPart.substr(vDigit));
+                n = iPart.substr(vDigit);
+                if (n.length > 0) {
+                    vParts.splice(i + 1, 0, n);
                 }
             }
             return vDate;
         },
         parseFormat: function (vChar, vDate) {
-            var self = this, vSettings = self.dateSettings, fmt, backspace = /\\?(.?)/gi, doFormat = function (t, s) {
+            var self = this, vSettings = self.dateSettings, fmt, backslash = /\\?(.?)/gi, doFormat = function (t, s) {
                 return fmt[t] ? fmt[t]() : s;
             };
             fmt = {
@@ -480,14 +519,6 @@ var DateFormatter;
                     return str || 'Coordinated Universal Time';
                 },
                 /**
-                 * Timezone abbreviation: `e.g. EST, MDT, ...`
-                 * @return {string}
-                 */
-                T: function () {
-                    var str = (String(vDate).match(self.tzParts) || [""]).pop().replace(self.tzClip, "");
-                    return str || 'UTC';
-                },
-                /**
                  * DST observed? `0 or 1`
                  * @return {number}
                  */
@@ -513,6 +544,14 @@ var DateFormatter;
                     return (O.substr(0, 3) + ':' + O.substr(3, 2));
                 },
                 /**
+                 * Timezone abbreviation: `e.g. EST, MDT, ...`
+                 * @return {string}
+                 */
+                T: function () {
+                    var str = (String(vDate).match(self.tzParts) || [""]).pop().replace(self.tzClip, "");
+                    return str || 'UTC';
+                },
+                /**
                  * Timezone offset in seconds: `-43200...50400`
                  * @return {number}
                  */
@@ -528,14 +567,14 @@ var DateFormatter;
                  * @return {string}
                  */
                 c: function () {
-                    return 'Y-m-d\\TH:i:sP'.replace(backspace, doFormat);
+                    return 'Y-m-d\\TH:i:sP'.replace(backslash, doFormat);
                 },
                 /**
                  * RFC 2822 date
                  * @return {string}
                  */
                 r: function () {
-                    return 'D, d M Y H:i:s O'.replace(backspace, doFormat);
+                    return 'D, d M Y H:i:s O'.replace(backslash, doFormat);
                 },
                 /**
                  * Seconds since UNIX epoch
@@ -548,23 +587,27 @@ var DateFormatter;
             return doFormat(vChar, vChar);
         },
         formatDate: function (vDate, vFormat) {
-            var self = this, i, n, len, str, vChar, vDateStr = '';
+            var self = this, i, n, len, str, vChar, vDateStr = '', BACKSLASH = '\\';
             if (typeof vDate === 'string') {
                 vDate = self.parseDate(vDate, vFormat);
-                if (vDate === false) {
-                    return false;
+                if (!vDate) {
+                    return null;
                 }
             }
             if (vDate instanceof Date) {
                 len = vFormat.length;
                 for (i = 0; i < len; i++) {
                     vChar = vFormat.charAt(i);
-                    if (vChar === 'S') {
+                    if (vChar === 'S' || vChar === BACKSLASH) {
+                        continue;
+                    }
+                    if (i > 0 && vFormat.charAt(i - 1) === BACKSLASH) {
+                        vDateStr += vChar;
                         continue;
                     }
                     str = self.parseFormat(vChar, vDate);
                     if (i !== (len - 1) && self.intParts.test(vChar) && vFormat.charAt(i + 1) === 'S') {
-                        n = parseInt(str);
+                        n = parseInt(str) || 0;
                         str += self.dateSettings.ordinal(n);
                     }
                     vDateStr += str;
@@ -1485,9 +1528,25 @@ var DateFormatter;
 					'<div class="xdsoft_label xdsoft_year"><span></span><i></i></div>' +
 					'<button type="button" class="xdsoft_next"></button></div>'),
 				calendar = $('<div class="xdsoft_calendar"></div>'),
-				timepicker = $('<div class="xdsoft_timepicker active"><button type="button" class="xdsoft_prev"></button><div class="xdsoft_time_box"></div><button type="button" class="xdsoft_next"></button></div>'),
-				timeboxparent = timepicker.find('.xdsoft_time_box').eq(0),
-				timebox = $('<div class="xdsoft_time_variant"></div>'),
+
+				timepicker = $('<table class="xdsoft_timepicker active">' +
+					'<thead><tr style="height: 14px"></tr><tr><th>Time:</th></tr></thead>' +
+					'<tbody>' +
+					'<tr><td><div class="hour_time display_time"><input type="text" class="display_time_text hour_time"><div class="xdsoft_time_box hour_time_box display_time"></div></div></td>' +
+					'<td><div class="separator"> : </div></td>' +
+					'<td><div class="minute_time display_time"><input type="text" class="display_time_text minute_time"><div class="xdsoft_time_box minute_time_box display_time"></div></div></td>' +
+					'<td><div class="separator">  </div></td>' +
+					'<td><div class="meridiem_time display_time"><input type="text" class="display_time_text meridiem_time"><div class="xdsoft_time_box meridiem_time_box display_time"></div></div></td>' +
+					'</tr></tbody></table>'),
+				hourTimeboxparent = timepicker.find('.hour_time_box').eq(0),
+				hourTimebox = $('<div class="xdsoft_time_variant"></div>'),
+
+				minuteTimeboxParent = timepicker.find('.minute_time_box').eq(0),
+				minuteTimebox = $('<div class="xdsoft_time_variant"></div>'),
+
+				meridiemTimeboxparent = timepicker.find('.meridiem_time_box').eq(0),
+				meridiemTimebox = $('<div class="xdsoft_time_variant"></div>'),
+
 				applyButton = $('<button type="button" class="xdsoft_save_selected blue-gradient-button">Save Selected</button>'),
 
 				monthselect = $('<div class="xdsoft_select xdsoft_monthselect"><div></div></div>'),
@@ -1722,7 +1781,8 @@ var DateFormatter;
 				}
 
 				if (!options.timepickerScrollbar) {
-					timeboxparent.xdsoftScroller('hide');
+					hourTimeboxparent.xdsoftScroller('hide');
+					minuteTimeboxParent.xdsoftScroller('hide');
 				}
 
 				if (options.minDate && /^[\+\-](.*)$/.test(options.minDate)) {
@@ -1797,12 +1857,18 @@ var DateFormatter;
 					return false;
 				});
 
-			//scroll_element = timepicker.find('.xdsoft_time_box');
-			timeboxparent.append(timebox);
-			timeboxparent.xdsoftScroller();
+			hourTimeboxparent.append(hourTimebox);
+			hourTimeboxparent.xdsoftScroller();
+			minuteTimeboxParent.append(minuteTimebox);
+			minuteTimeboxParent.xdsoftScroller();
+
+			if (options.hours12) {
+				meridiemTimeboxparent.append(meridiemTimebox);
+			}
 
 			datetimepicker.on('afterOpen.xdsoft', function () {
-				timeboxparent.xdsoftScroller();
+				hourTimeboxparent.xdsoftScroller();
+				minuteTimeboxParent.xdsoftScroller();
 			});
 
 			datetimepicker
@@ -2141,7 +2207,9 @@ var DateFormatter;
 							classes = [],
 							customDateSettings,
 							newRow = true,
-							time = '',
+							hourTime = '',
+							minuteTime = '',
+							meridiemTime = '',
 							h = '',
 							line_time,
 							description;
@@ -2267,16 +2335,24 @@ var DateFormatter;
 						mounth_picker.find('.xdsoft_label span').eq(1).text(_xdsoft_datetime.currentTime.getFullYear());
 
 						// generate timebox
-						time = '';
 						h = '';
 						m = '';
 
-						line_time = function line_time(h, m) {
-							var now = _xdsoft_datetime.now(), optionDateTime, current_time,
+						hourTime = '';
+						minuteTime = '';
+						meridiemTime = '';
+						line_time = function line_time(optionsTime, singleTime) {
+							var now = _xdsoft_datetime.now(), optionDateTime, current_time, 
 								isALlowTimesInit = options.allowTimes && $.isArray(options.allowTimes) && options.allowTimes.length;
-							now.setHours(h);
+							if (optionsTime == 'hour') {
+								now.setHours(singleTime);
+								now.setMinutes('0');
+							} else {
+								now.setHours('0');
+								now.setMinutes(singleTime);								
+							}
+							
 							h = parseInt(now.getHours(), 10);
-							now.setMinutes(m);
 							m = parseInt(now.getMinutes(), 10);
 							optionDateTime = new Date(_xdsoft_datetime.currentTime);
 							optionDateTime.setHours(h);
@@ -2296,37 +2372,99 @@ var DateFormatter;
 							if (!isALlowTimesInit) {
 								current_time.setMinutes(Math[options.roundTime](_xdsoft_datetime.currentTime.getMinutes() / options.step) * options.step);
 							}
+							
+							var currentHour = current_time.getHours();
 
-							if ((options.initTime || options.defaultSelect || datetimepicker.data('changed')) && current_time.getHours() === parseInt(h, 10) && ((!isALlowTimesInit && options.step > 59) || current_time.getMinutes() === parseInt(m, 10))) {
+							if (options.hours12) {
+								currentHour %= 12;
+								currentHour = currentHour === 0 ? 12 : currentHour;
+							}
+
+							const isCurrentHour = optionsTime === 'hour' ? currentHour === parseInt(h, 10) : true;
+							const isCurrentMinute = optionsTime === 'minute' ? current_time.getMinutes() === parseInt(m, 10) : true;
+
+							if ((options.initTime || options.defaultSelect || datetimepicker.data('changed')) &&
+								isCurrentHour && 
+								((!isALlowTimesInit && options.step > 59) || isCurrentMinute)) {
 								if (options.defaultSelect || datetimepicker.data('changed')) {
 									classes.push('xdsoft_current');
 								} else if (options.initTime) {
 									classes.push('xdsoft_init_time');
 								}
 							}
-							if (parseInt(today.getHours(), 10) === parseInt(h, 10) && parseInt(today.getMinutes(), 10) === parseInt(m, 10)) {
+							if ((optionsTime == 'hour' && parseInt(today.getHours(), 10) === parseInt(h, 10)) || (optionsTime == 'minute' && parseInt(today.getMinutes(), 10) === parseInt(m, 10))) {
 								classes.push('xdsoft_today');
 							}
-							time += '<div class="xdsoft_time ' + classes.join(' ') + '" data-hour="' + h + '" data-minute="' + m + '">' + dateHelper.formatDate(now, options.formatTime) + '</div>';
+							
+							if (optionsTime == 'hour') {
+								hourTime += '<div class="xdsoft_time ' + classes.join(' ') + '" data-hour="' + h + '" data-minute="' + m + '">' + singleTime + '</div>';
+							} else {
+								minuteTime += '<div class="xdsoft_time ' + classes.join(' ') + '" data-hour="' + h + '" data-minute="' + m + '">' + singleTime + '</div>';
+							}
 						};
 
 						if (!options.allowTimes || !$.isArray(options.allowTimes) || !options.allowTimes.length) {
-							for (i = 0, j = 0; i < (options.hours12 ? 12 : 24); i += 1) {
-								for (j = 0; j < 60; j += options.step) {
+							// m = 0;
+							for (i = 0; i < (options.hours12 ? 12 : 24); i += 1) {
+								if (options.hours12 && i === 0) {
+									h = '12';
+								} else {
 									h = (i < 10 ? '0' : '') + i;
-									m = (j < 10 ? '0' : '') + j;
-									line_time(h, m);
 								}
+								line_time('hour', h);
 							}
+							for (j = 0; j < 60; j += options.step) {
+								m = (j < 10 ? '0' : '') + j;
+								line_time('minute', m);
+							}
+							['AM', 'PM'].forEach(function (meridiem) {
+								const currentTime = new Date(_xdsoft_datetime.currentTime);
+								const currentHour = parseInt(currentTime.getHours(), 10);
+								const currentMeridiem = currentHour < 12 ? 'AM' : 'PM';
+								var classes = [];
+
+								if ((options.initTime || options.defaultSelect || datetimepicker.data('changed')) &&
+									currentMeridiem === meridiem) {
+									if (options.defaultSelect || datetimepicker.data('changed')) {
+										classes.push('xdsoft_current');
+									} else if (options.initTime) {
+										classes.push('xdsoft_init_time');
+									}
+								}
+
+								if (currentMeridiem === meridiem) {
+									classes.push('xdsoft_today');
+								}
+								meridiemTime += '<div class="xdsoft_time ' + classes.join(' ') + '" data-meridiem="' + meridiem + '">' + meridiem + '</div>';
+							});
 						} else {
 							for (i = 0; i < options.allowTimes.length; i += 1) {
 								h = _xdsoft_datetime.strtotime(options.allowTimes[i]).getHours();
 								m = _xdsoft_datetime.strtotime(options.allowTimes[i]).getMinutes();
-								line_time(h, m);
+								line_time('hour', h);
+								line_time('minute', m);
 							}
 						}
 
-						timebox.html(time);
+						var currentHour = parseInt(_xdsoft_datetime.currentTime.getHours(), 10);
+						var currentMinute = parseInt(_xdsoft_datetime.currentTime.getMinutes(), 10);
+
+						if (options.hours12) {
+							timepicker.find('input.meridiem_time').eq(0).attr('value', currentHour < 12 ? 'AM' : 'PM');
+							meridiemTimebox.html(meridiemTime);
+							currentHour %= 12;
+							currentHour = currentHour === 0 ? 12 : currentHour;
+						} else {
+							timepicker.find('div.meridiem_time').eq(0).hide();
+						}
+						
+						timepicker.find('input.hour_time').eq(0).attr('value', (currentHour < 10 ? '0' : '') + currentHour);
+						timepicker.find('input.minute_time').eq(0).attr('value', (currentMinute < 10 ? '0' : '') + currentMinute);
+
+						hourTimebox.html(hourTime);
+						minuteTimebox.html(minuteTime);
+
+						// generate month and year
 
 						opt = '';
 						i = 0;
@@ -2348,25 +2486,46 @@ var DateFormatter;
 				})
 				.on('afterOpen.xdsoft', function () {
 					if (options.timepicker) {
-						var classType, pheight, height, top;
-						if (timebox.find('.xdsoft_current').length) {
-							classType = '.xdsoft_current';
-						} else if (timebox.find('.xdsoft_init_time').length) {
-							classType = '.xdsoft_init_time';
-						}
-						if (classType) {
-							pheight = timeboxparent[0].clientHeight;
-							height = timebox[0].offsetHeight;
-							top = timebox.find(classType).index() * options.timeHeightInTimePicker + 1;
-							if ((height - pheight) < top) {
-								top = height - pheight;
-							}
-							timeboxparent.trigger('scroll_element.xdsoft_scroller', [parseInt(top, 10) / (height - pheight)]);
-						} else {
-							timeboxparent.trigger('scroll_element.xdsoft_scroller', [0]);
-						}
+						hourTimeboxparent.hide();
+						minuteTimeboxParent.hide();
+						meridiemTimeboxparent.hide();
 					}
 				});
+
+			const timepicker_sections = ['hour_time', 'minute_time', 'meridiem_time'];
+			const attachSectionClickEvent = function attachSectionClickEvent (selector, timebox, timeboxparent) {
+				timepicker.find('input.' + selector).eq(0).on('touchend click.xdsoft', function (xdevent) {
+					xdevent.preventDefault();
+					xdevent.stopPropagation();
+					timepicker_sections.forEach(function (section) {
+						if (section !== selector) {
+							timepicker.find('.' + section + '_box').hide();
+						}
+					});
+					timeboxparent.toggle();
+
+					var classType, pheight, height, top;
+					if (timebox.find('.xdsoft_current').length) {
+						classType = '.xdsoft_current';
+					} else if (timebox.find('.xdsoft_init_time').length) {
+						classType = '.xdsoft_init_time';
+					}
+					if (classType) {
+						pheight = timeboxparent[0].clientHeight;
+						height = timebox[0].offsetHeight;
+						top = timebox.find(classType).index() * options.timeHeightInTimePicker + 1;
+						if ((height - pheight) < top) {
+							top = height - pheight;
+						}
+						timeboxparent.trigger('scroll_element.xdsoft_scroller', [parseInt(top, 10) / (height - pheight)]);
+					} else {
+						timeboxparent.trigger('scroll_element.xdsoft_scroller', [0]);
+					}
+				});
+			}
+			attachSectionClickEvent('hour_time', hourTimebox, hourTimeboxparent);
+			attachSectionClickEvent('minute_time', minuteTimebox, minuteTimeboxParent);
+			attachSectionClickEvent('meridiem_time', meridiemTimebox, meridiemTimeboxparent);
 
 			timerclick = 0;
 			calendar
@@ -2409,7 +2568,7 @@ var DateFormatter;
 					}, 200);
 				});
 
-			timebox
+			hourTimebox
 				.on('touchend click.xdsoft', 'div', function (xdevent) {
 					xdevent.stopPropagation();
 					var $this = $(this),
@@ -2424,6 +2583,35 @@ var DateFormatter;
 						return false;
 					}
 					currentTime.setHours($this.data('hour'));
+					datetimepicker.trigger('select.xdsoft', [currentTime]);
+
+					datetimepicker.data('input').val(_xdsoft_datetime.str());
+
+					if (options.onSelectTime && $.isFunction(options.onSelectTime)) {
+						options.onSelectTime.call(datetimepicker, _xdsoft_datetime.currentTime, datetimepicker.data('input'), xdevent);
+					}
+					datetimepicker.data('changed', true);
+					datetimepicker.trigger('xchange.xdsoft');
+					datetimepicker.trigger('changedatetime.xdsoft');
+					if (options.inline !== true && options.closeOnTimeSelect === true) {
+						hourTimeboxparent.hide();
+					}
+				});
+
+			minuteTimebox
+				.on('touchend click.xdsoft', 'div', function (xdevent) {
+					xdevent.stopPropagation();
+					var $this = $(this),
+						currentTime = _xdsoft_datetime.currentTime;
+
+					if (currentTime === undefined || currentTime === null) {
+						_xdsoft_datetime.currentTime = _xdsoft_datetime.now();
+						currentTime = _xdsoft_datetime.currentTime;
+					}
+
+					if ($this.hasClass('xdsoft_disabled')) {
+						return false;
+					}
 					currentTime.setMinutes($this.data('minute'));
 					datetimepicker.trigger('select.xdsoft', [currentTime]);
 
@@ -2436,7 +2624,45 @@ var DateFormatter;
 					datetimepicker.trigger('xchange.xdsoft');
 					datetimepicker.trigger('changedatetime.xdsoft');
 					if (options.inline !== true && options.closeOnTimeSelect === true) {
-						datetimepicker.trigger('close.xdsoft');
+						minuteTimeboxParent.hide();
+					}
+				});
+
+			meridiemTimebox
+				.on('touchend click.xdsoft', 'div', function (xdevent) {
+					xdevent.stopPropagation();
+					var $this = $(this), changed = false,
+						currentTime = _xdsoft_datetime.currentTime;
+
+					if (currentTime === undefined || currentTime === null) {
+						_xdsoft_datetime.currentTime = _xdsoft_datetime.now();
+						currentTime = _xdsoft_datetime.currentTime;
+					}
+
+					if ($this.hasClass('xdsoft_disabled')) {
+						return false;
+					}
+					const currentHour = currentTime.getHours();
+					const meridiem = $this.data('meridiem');
+					if (currentHour < 12 && meridiem === 'PM') {
+						currentTime.setHours(currentHour + 12);
+						changed = true;
+					} else if (currentHour >= 12 && meridiem === 'AM') {
+						currentTime.setHours(currentHour - 12);
+						changed = true;
+					}
+					if (changed) {
+						datetimepicker.trigger('select.xdsoft', [currentTime]);
+
+						datetimepicker.data('input').val(_xdsoft_datetime.str());
+
+						datetimepicker.data('changed', true);
+						datetimepicker.trigger('xchange.xdsoft');
+						datetimepicker.trigger('changedatetime.xdsoft');
+					}
+
+					if (options.inline !== true && options.closeOnTimeSelect === true) {
+						meridiemTimeboxparent.hide();
 					}
 				});
 
@@ -2453,30 +2679,34 @@ var DateFormatter;
 					return false;
 				});
 
-			input
-				.on('mousewheel.xdsoft', function (event) {
-					if (!options.scrollInput) {
-						return true;
-					}
-					if (!options.datepicker && options.timepicker) {
-						current_time_index = timebox.find('.xdsoft_current').length ? timebox.find('.xdsoft_current').eq(0).index() : 0;
-						if (current_time_index + event.deltaY >= 0 && current_time_index + event.deltaY < timebox.children().length) {
-							current_time_index += event.deltaY;
+			const attachMouseWheelEvent = function attachMouseWheelEvent (timebox) {
+				input
+					.on('mousewheel.xdsoft', function (event) {
+						if (!options.scrollInput) {
+							return true;
 						}
-						if (timebox.children().eq(current_time_index).length) {
-							timebox.children().eq(current_time_index).trigger('mousedown');
+						if (!options.datepicker && options.timepicker) {
+							current_time_index = timebox.find('.xdsoft_current').length ? timebox.find('.xdsoft_current').eq(0).index() : 0;
+							if (current_time_index + event.deltaY >= 0 && current_time_index + event.deltaY < timebox.children().length) {
+								current_time_index += event.deltaY;
+							}
+							if (timebox.children().eq(current_time_index).length) {
+								timebox.children().eq(current_time_index).trigger('mousedown');
+							}
+							return false;
 						}
-						return false;
-					}
-					if (options.datepicker && !options.timepicker) {
-						datepicker.trigger(event, [event.deltaY, event.deltaX, event.deltaY]);
-						if (input.val) {
-							input.val(_xdsoft_datetime.str());
+						if (options.datepicker && !options.timepicker) {
+							datepicker.trigger(event, [event.deltaY, event.deltaX, event.deltaY]);
+							if (input.val) {
+								input.val(_xdsoft_datetime.str());
+							}
+							datetimepicker.trigger('changedatetime.xdsoft');
+							return false;
 						}
-						datetimepicker.trigger('changedatetime.xdsoft');
-						return false;
-					}
-				});
+					});
+			};
+			attachMouseWheelEvent(hourTimebox);
+			attachMouseWheelEvent(minuteTimebox);
 
 			datetimepicker
 				.on('changedatetime.xdsoft', function (event) {
