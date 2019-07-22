@@ -578,7 +578,7 @@
 		prev: 'xdsoft_prev',
 		dayOfWeekStart: 0,
 		parentID: 'body',
-		timeHeightInTimePicker: 25,
+		timeHeightInTimePicker: 21,
 		timepickerScrollbar: true,
 		todayButton: true,
 		prevButton: true,
@@ -1513,9 +1513,10 @@
 					var $this = $(this),
 						timer = 0,
 						stop = false,
-						period = 110;
+						period = 110,
+						scrollTimeBoxParent;
 
-					const scrollTimeBoxParent = function scrollTimeBoxParent (timebox, timeboxparent, v) {
+					scrollTimeBoxParent = function scrollTimeBoxParent (timebox, timeboxparent, v) {
 						var pheight = timeboxparent[0].clientHeight,
 							height = timebox[0].offsetHeight,
 							top = Math.abs(parseInt(timebox.css('marginTop'), 10));
@@ -1589,6 +1590,7 @@
 							minuteTime = '',
 							meridiemTime = '',
 							h = '',
+							lineTime,
 							description;
 
 						while (start.getDay() !== options.dayOfWeekStart) {
@@ -1718,8 +1720,8 @@
 						hourTime = '';
 						minuteTime = '';
 						meridiemTime = '';
-						const lineTime = function lineTime (optionsTime, singleTime) {
-							var now = _xdsoft_datetime.now(), optionDateTime, currentTime,
+						lineTime = function lineTime (optionsTime, singleTime) {
+							var now = _xdsoft_datetime.now(), optionDateTime, currentTime, currentHour, isCurrentHour, isCurrentMinute,
 								isALlowTimesInit = options.allowTimes && $.isArray(options.allowTimes) && options.allowTimes.length;
 							if (optionsTime === 'hour') {
 								now.setHours(singleTime);
@@ -1750,15 +1752,15 @@
 								currentTime.setMinutes(Math[options.roundTime](_xdsoft_datetime.currentTime.getMinutes() / options.step) * options.step);
 							}
 
-							var currentHour = currentTime.getHours();
+							currentHour = currentTime.getHours();
 
 							if (options.hours12) {
 								currentHour %= 12;
 								currentHour = currentHour === 0 ? 12 : currentHour;
 							}
 
-							const isCurrentHour = optionsTime === 'hour' ? currentHour === parseInt(h, 10) : true,
-								isCurrentMinute = optionsTime === 'minute' ? currentTime.getMinutes() === parseInt(m, 10) : true;
+							isCurrentHour = optionsTime === 'hour' ? currentHour === parseInt(h, 10) : true;
+							isCurrentMinute = optionsTime === 'minute' ? currentTime.getMinutes() === parseInt(m, 10) : true;
 
 							if ((options.initTime || options.defaultSelect || datetimepicker.data('changed')) &&
 								isCurrentHour &&
@@ -1795,10 +1797,10 @@
 								lineTime('minute', m);
 							}
 							['AM', 'PM'].forEach(function (meridiem) {
-								const currentTime = new Date(_xdsoft_datetime.currentTime),
+								var currentTime = new Date(_xdsoft_datetime.currentTime),
 									currentHour = parseInt(currentTime.getHours(), 10),
-									currentMeridiem = currentHour < 12 ? 'AM' : 'PM';
-								var classes = [];
+									currentMeridiem = currentHour < 12 ? 'AM' : 'PM',
+									classes = [];
 
 								if ((options.initTime || options.defaultSelect || datetimepicker.data('changed')) &&
 									currentMeridiem === meridiem) {
@@ -1818,8 +1820,8 @@
 							for (i = 0; i < options.allowTimes.length; i += 1) {
 								h = _xdsoft_datetime.strtotime(options.allowTimes[i]).getHours();
 								m = _xdsoft_datetime.strtotime(options.allowTimes[i]).getMinutes();
-								line_time('hour', h);
-								line_time('minute', m);
+								lineTime('hour', h);
+								lineTime('minute', m);
 							}
 						}
 
@@ -1868,12 +1870,11 @@
 					}
 				});
 
-			const timepicker_sections = ['hour_time', 'minute_time', 'meridiem_time'];
-			const attachSectionClickEvent = function attachSectionClickEvent (selector, timebox, timeboxparent) {
+			var attachSectionClickEvent = function attachSectionClickEvent (selector, timebox, timeboxparent) {
 				timepicker.find('input.' + selector).eq(0).on('touchend click.xdsoft', function (xdevent) {
 					xdevent.preventDefault();
 					xdevent.stopPropagation();
-					timepicker_sections.forEach(function (section) {
+					['hour_time', 'minute_time', 'meridiem_time'].forEach(function (section) {
 						if (section !== selector) {
 							timepicker.find('.' + section + '_box').hide();
 						}
@@ -2008,7 +2009,8 @@
 				.on('touchend click.xdsoft', 'div', function (xdevent) {
 					xdevent.stopPropagation();
 					var $this = $(this), changed = false,
-						currentTime = _xdsoft_datetime.currentTime;
+						currentTime = _xdsoft_datetime.currentTime,
+						currentHour, meridiem;
 
 					if (currentTime === undefined || currentTime === null) {
 						_xdsoft_datetime.currentTime = _xdsoft_datetime.now();
@@ -2018,8 +2020,10 @@
 					if ($this.hasClass('xdsoft_disabled')) {
 						return false;
 					}
-					const currentHour = currentTime.getHours(),
-						meridiem = $this.data('meridiem');
+
+					currentHour = currentTime.getHours();
+					meridiem = $this.data('meridiem');
+
 					if (currentHour < 12 && meridiem === 'PM') {
 						currentTime.setHours(currentHour + 12);
 						changed = true;
@@ -2055,7 +2059,7 @@
 					return false;
 				});
 
-			const attachMouseWheelEvent = function attachMouseWheelEvent (timebox) {
+			var attachMouseWheelEvent = function attachMouseWheelEvent (timebox) {
 				input
 					.on('mousewheel.xdsoft', function (event) {
 						if (!options.scrollInput) {
